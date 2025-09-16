@@ -14,6 +14,9 @@ enum State {
     NORMAL_IN_STR_CONST // STR const로 Wrapping된 Normal 코드
 };
 
+void track_line_num(char ch, int *line_num);
+void terminate_multi_line_comment(int *line_com_count);
+
 
 int main(void) {
     int ch;               // 문자 단위 입력을 받을 변수
@@ -21,7 +24,9 @@ int main(void) {
     // Decommenter가 처음 시작될 때의 State는 NORMAL로 시작한다.
     enum State state = NORMAL;
     int line_num =1;
+    // ERROR DESCRIOTION을 위해 사용하는 변수
     int line_com_start = -1;
+    // Mulit line comment 끝날 때, space뒤에 개행을 해주기 위해 활용하는 변수
     int line_com_count = 0;
     while ((ch = getchar()) != EOF) {   // 표준 입력에서 한 글자씩
         switch (state) {
@@ -43,9 +48,7 @@ int main(void) {
                         state = NORMAL;
                         putchar(ch);
                         // 만약 \n이라면 ++
-                        if (ch == '\n') {
-                            line_num++;
-                        }
+                        track_line_num(ch, &line_num);
                         break;
                 }
                 break;
@@ -68,10 +71,7 @@ int main(void) {
                     default:
                         state = NORMAL;
                         fprintf(out, "/%c", ch);
-                        // 만약 \n이라면 ++
-                        if (ch == '\n') {
-                            line_num++;
-                        }
+                        track_line_num(ch, &line_num);
                         break;
                 }
                 break;
@@ -80,8 +80,8 @@ int main(void) {
                     // SINGLE LINE COMMENT 종료 with -> space추가
                     fprintf(out," %c", ch);
                     state = NORMAL;
-                    line_num++;
                 }
+                track_line_num(ch, &line_num);
                 break;
 
             case MULTI_LINE_COMMENT:
@@ -89,7 +89,7 @@ int main(void) {
                     case '\n': {
                         // 개행은 일단 출력하지 말고, Multi line 주석이 끝날 때
                         // 한번에 처리하자.
-                        line_num++;
+                        track_line_num(ch, &line_num);
                         // line com은 추후에 주석이 종료될 때를 대비하여 증가시키기
                         line_com_count++;
                         break;
@@ -98,13 +98,7 @@ int main(void) {
                         int next = getchar();
                         if (next == '/' ) {
                             state = NORMAL;
-                            // Multi LINE COMMENT 종료 with -> space추가
-                            putchar(' ');
-                            // line_com만큼 개행문자 넣어주고 다시 0으로 초기화하기
-                            for (int i=0; i<line_com_count; i++) {
-                                putchar('\n');
-                            }
-                            line_com_count = 0;
+                            terminate_multi_line_comment(&line_com_count);
                         } else {
                             ungetc(next, stdin);
                         }
@@ -149,8 +143,25 @@ int main(void) {
         // 에러 처리 : Unterminated COMMENT
     if (state == MULTI_LINE_COMMENT) {
             fprintf(stderr, "Error: line %d: unterminated comment\n", line_com_start);
+            terminate_multi_line_comment(&line_com_count);
             return EXIT_FAILURE;
         }
         return EXIT_FAILURE;
     return EXIT_SUCCESS;
+}
+
+void track_line_num(char ch, int *line_num) {
+    if (ch=='\n') {
+        (*line_num)++;
+    }
+}
+
+void terminate_multi_line_comment(int *line_com_count) {
+    // Multi LINE COMMENT 종료 with -> space추가
+    putchar(' ');
+    // line_com만큼 개행문자 넣어주고 다시 0으로 초기화하기
+    for (int i=0; i<*line_com_count; i++) {
+        putchar('\n');
+    }
+    *line_com_count = 0;
 }
