@@ -2,3 +2,6 @@
 - 기록용
 - ssh 원격 서버로 옮기는 용
 - 수고링
+
+---
+![State Transition Diagram](201814751_assign1/dfa.png)
