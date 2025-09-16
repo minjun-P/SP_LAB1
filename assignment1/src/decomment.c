@@ -14,7 +14,6 @@ enum State {
     NORMAL_IN_STR_CONST // STR const로 Wrapping된 Normal 코드
 };
 
-void track_line_num(char ch, int *line_num);
 void terminate_multi_line_comment(int *line_com_count);
 
 
@@ -34,7 +33,7 @@ int main(void) {
                 switch(ch) {
                     case '/':
                         state = SLASH_FOUND;
-                        // 주석이 될 수도 있으니 일단 유보
+                        // 주석이 될 수도 있으니 일단 출력을 유보
                         break;
                     case '\'':
                         state = NORMAL_IN_CHAR_CONST;
@@ -47,8 +46,10 @@ int main(void) {
                     default:
                         state = NORMAL;
                         putchar(ch);
-                        // 만약 \n이라면 ++
-                        track_line_num(ch, &line_num);
+                        if (ch=='\n') {
+                            line_num++;
+                        }
+
                         break;
                 }
                 break;
@@ -63,15 +64,18 @@ int main(void) {
                         break;
                     case '\'':
                         state = NORMAL_IN_CHAR_CONST;
-                        putchar(ch);
+                        fprintf(out, "/%c", ch);
+                        break;
                     case '\"':
                         state = NORMAL_IN_STR_CONST;
-                        putchar(ch);
+                        fprintf(out, "/%c", ch);
                         break;
                     default:
                         state = NORMAL;
                         fprintf(out, "/%c", ch);
-                        track_line_num(ch, &line_num);
+                        if (ch=='\n') {
+                            line_num++;
+                        }
                         break;
                 }
                 break;
@@ -80,16 +84,16 @@ int main(void) {
                     // SINGLE LINE COMMENT 종료 with -> space추가
                     fprintf(out," %c", ch);
                     state = NORMAL;
+                    line_num++;
                 }
-                track_line_num(ch, &line_num);
                 break;
 
             case MULTI_LINE_COMMENT:
                 switch(ch) {
                     case '\n': {
                         // 개행은 일단 출력하지 말고, Multi line 주석이 끝날 때
-                        // 한번에 처리하자.
-                        track_line_num(ch, &line_num);
+                        // 한번에 처리해야 한다. 공백문자가 먼저 나온뒤 개행문자가 나오는 것으로 대치되는 규칙이 있기 때문
+                        line_num++;
                         // line com은 추후에 주석이 종료될 때를 대비하여 증가시키기
                         line_com_count++;
                         break;
@@ -104,6 +108,9 @@ int main(void) {
                         }
                         break;
                     }
+                    default:
+                        // do nothing
+                        break;
 
                 }
                 break;
@@ -112,7 +119,11 @@ int main(void) {
                 putchar(ch);
                 switch(ch) {
                     case '\\': {
-                        int next = getchar(); // 이스케이프 있으면 다음꺼도 뭐가됐든 무조건 출력함, 즉 이 케이스에선 2개 출력
+                        int next = getchar(); // 이스케이프 있으면 다음꺼도 뭐가됐든(exceopt EOF) 무조건 출력함
+                        if (next == EOF) {
+                            // 혹시나 하는 상황
+                            return EXIT_SUCCESS;
+                        }
                         putchar(next);
                         break;
                     }
@@ -127,7 +138,11 @@ int main(void) {
                 putchar(ch);
                 switch(ch) {
                     case '\\': {
-                        int next = getchar(); // 이스케이프 있으면 다음꺼도 뭐가됐든 무조건 출력함
+                        int next = getchar(); // 이스케이프 있으면 다음꺼도 뭐가됐든(exceopt EOF) 무조건 출력함
+                        if (next == EOF) {
+                            // 혹시나 하는 상황
+                            return EXIT_SUCCESS;
+                        }
                         putchar(next);
                         break;
                     }
@@ -142,19 +157,13 @@ int main(void) {
      // 여기 도착했으면 EOF 떠서 WHILE 문 끝난 상황
         // 에러 처리 : Unterminated COMMENT
     if (state == MULTI_LINE_COMMENT) {
-            fprintf(stderr, "Error: line %d: unterminated comment\n", line_com_start);
-            terminate_multi_line_comment(&line_com_count);
-            return EXIT_FAILURE;
-        }
+        fprintf(stderr, "Error: line %d: unterminated comment\n", line_com_start);
+        terminate_multi_line_comment(&line_com_count);
         return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 }
 
-void track_line_num(char ch, int *line_num) {
-    if (ch=='\n') {
-        (*line_num)++;
-    }
-}
 
 void terminate_multi_line_comment(int *line_com_count) {
     // Multi LINE COMMENT 종료 with -> space추가
